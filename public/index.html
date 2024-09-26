@@ -55,82 +55,103 @@
         </div>
     </div>
     
-    <script>
-        const channel = 'channel1';
-        const eventSource = new EventSource(`http://localhost:3000/events/${channel}`);
-        const existingUsernames = new Set();
-        let currentUsername = '';
+	<script>
+		const channel = 'channel1';
+		const eventSource = new EventSource(`https://sse-message-api-nodejs.vercel.app/events/${channel}`);
+		const existingUsernames = new Set();
+		let currentUsername = '';
 
-        const generateRandomNumber = () => Math.floor(100000 + Math.random() * 900000);
+		const generateRandomNumber = () => Math.floor(100000 + Math.random() * 900000);
 
-        const getUniqueUsername = (name) => {
-            if (!name || existingUsernames.has(name)) {
-                let randomUsername;
-                do {
-                    randomUsername = `Guest-${generateRandomNumber()}`;
-                } while (existingUsernames.has(randomUsername));
-                existingUsernames.add(randomUsername);
-                return randomUsername;
-            }
-            existingUsernames.add(name);
-            return name;
-        };
+		const getUniqueUsername = (name) => {
+			if (!name || existingUsernames.has(name)) {
+				let randomUsername;
+				do {
+					randomUsername = `Guest-${generateRandomNumber()}`;
+				} while (existingUsernames.has(randomUsername));
+				existingUsernames.add(randomUsername);
+				return randomUsername;
+			}
+			existingUsernames.add(name);
+			return name;
+		};
 
-        eventSource.onmessage = ({ data }) => {
-            const { sender, message } = JSON.parse(data);
-            const isSender = sender === currentUsername;
+		const loadMessagesFromLocalStorage = () => {
+			const messages = JSON.parse(localStorage.getItem('messages')) || [];
+			messages.forEach(({ sender, message }) => {
+				displayMessage(sender, message);
+			});
+		};
 
-            const messageClass = isSender ? 'bg-blue-500 text-white ml-auto' : 'bg-gray-300 text-black';
-            const alignClass = isSender ? 'flex justify-end' : 'flex justify-start';
+		const displayMessage = (sender, message) => {
+			const isSender = sender === currentUsername;
+			const messageClass = isSender ? 'bg-blue-500 text-white ml-auto' : 'bg-gray-300 text-black';
+			const alignClass = isSender ? 'flex justify-end' : 'flex justify-start';
 
-            const messagesDiv = document.getElementById('messages');
-            messagesDiv.innerHTML += `
-                <div class="${alignClass}">
-                    <div class="max-w-xs ${messageClass} rounded-lg p-2 my-1">
-                        <p class="font-semibold">${sender || `Guest-${generateRandomNumber()}`}</p>
-                        <p>${message}</p>
-                    </div>
-                </div>
-            `;
+			const messagesDiv = document.getElementById('messages');
+			messagesDiv.innerHTML += `
+				<div class="${alignClass}">
+					<div class="max-w-xs ${messageClass} rounded-lg p-2 my-1">
+						<p class="font-semibold">${sender || `Guest-${generateRandomNumber()}`}</p>
+						<p>${message}</p>
+					</div>
+				</div>
+			`;
 
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        };
+			messagesDiv.scrollTop = messagesDiv.scrollHeight;
+		};
 
-        document.getElementById('nameInputButton').onclick = () => {
-            document.getElementById('modal').classList.remove('hidden');
-        };
+		eventSource.onmessage = ({ data }) => {
+			const { sender, message } = JSON.parse(data);
+			displayMessage(sender, message);
+			saveMessageToLocalStorage(sender, message);
+		};
 
-        document.getElementById('modalCloseButton').onclick = () => {
-            document.getElementById('modal').classList.add('hidden');
-        };
+		const saveMessageToLocalStorage = (sender, message) => {
+			const messages = JSON.parse(localStorage.getItem('messages')) || [];
+			messages.push({ sender, message });
+			localStorage.setItem('messages', JSON.stringify(messages));
+		};
 
-        document.getElementById('modalSubmitButton').onclick = () => {
-            const nameInput = document.getElementById('modalNameInput');
-            const name = nameInput.value.trim();
-            currentUsername = getUniqueUsername(name);
+		document.getElementById('nameInputButton').onclick = () => {
+			document.getElementById('modal').classList.remove('hidden');
+		};
 
-            document.getElementById('modal').classList.add('hidden');
-            document.getElementById('messageInput').focus();
-        };
+		document.getElementById('modalCloseButton').onclick = () => {
+			document.getElementById('modal').classList.add('hidden');
+		};
 
-        document.getElementById('messageForm').onsubmit = (e) => {
-            e.preventDefault();
-            const message = document.getElementById('messageInput').value;
+		document.getElementById('modalSubmitButton').onclick = () => {
+			const nameInput = document.getElementById('modalNameInput');
+			const name = nameInput.value.trim();
+			currentUsername = getUniqueUsername(name);
 
-            // Check if the username is set, if not show modal
-            if (!currentUsername) {
-                document.getElementById('modal').classList.remove('hidden');
-                return;
-            }
+			document.getElementById('modal').classList.add('hidden');
+			document.getElementById('messageInput').focus();
+		};
 
-            fetch(`http://localhost:3000/send/${channel}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: currentUsername, message }),
-            });
+		document.getElementById('messageForm').onsubmit = (e) => {
+			e.preventDefault();
+			const message = document.getElementById('messageInput').value;
 
-            document.getElementById('messageInput').value = '';
-        };
-    </script>
+			if (!currentUsername) {
+				document.getElementById('modal').classList.remove('hidden');
+				return;
+			}
+
+			fetch(`https://sse-message-api-nodejs.vercel.app/send/${channel}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ sender: currentUsername, message }),
+			});
+
+			saveMessageToLocalStorage(currentUsername, message);
+
+			document.getElementById('messageInput').value = '';
+		};
+
+		loadMessagesFromLocalStorage();
+	</script>
+
 </body>
 </html>
