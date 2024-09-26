@@ -57,6 +57,7 @@
     
 	<script>
 		const channel = 'channel1';
+		const eventSource = new EventSource(`https://sse-message-api-nodejs.vercel.app/events/${channel}`);
 		const existingUsernames = new Set();
 		let currentUsername = '';
 
@@ -100,17 +101,10 @@
 			messagesDiv.scrollTop = messagesDiv.scrollHeight;
 		};
 
-		const fetchMessages = () => {
-			fetch(`https://sse-message-api-nodejs.vercel.app/events/${channel}`)
-				.then(response => response.json())
-				.then(data => {
-					// Assuming data is an array of messages
-					data.forEach(({ sender, message }) => {
-						displayMessage(sender, message);
-						saveMessageToLocalStorage(sender, message);
-					});
-				})
-				.catch(error => console.error('Error fetching messages:', error));
+		eventSource.onmessage = ({ data }) => {
+			const { sender, message } = JSON.parse(data);
+			displayMessage(sender, message);
+			saveMessageToLocalStorage(sender, message);
 		};
 
 		const saveMessageToLocalStorage = (sender, message) => {
@@ -145,7 +139,7 @@
 				return;
 			}
 
-			fetch(`http://localhost:3000/send/${channel}`, {
+			fetch(`https://sse-message-api-nodejs.vercel.app/send/${channel}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ sender: currentUsername, message }),
@@ -157,8 +151,6 @@
 		};
 
 		loadMessagesFromLocalStorage();
-
-		setInterval(fetchMessages, 3000);
 	</script>
 
 </body>
