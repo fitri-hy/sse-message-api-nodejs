@@ -57,7 +57,7 @@
     
 	<script>
 		const channel = 'channel1';
-		const eventSource = new EventSource(`http://localhost:3000/events/${channel}`);
+		const eventSource = new EventSource(`/events/${channel}`);
 		const existingUsernames = new Set();
 		let currentUsername = '';
 
@@ -139,7 +139,7 @@
 				return;
 			}
 
-			fetch(`http://localhost:3000/send/${channel}`, {
+			fetch(`/send/${channel}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ sender: currentUsername, message }),
