@@ -1,57 +1,66 @@
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
-const validator = require('validator');
-
 const app = express();
-const PORT = 3000;
+const cors = require('cors');
 
 app.use(cors());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
 
-let clients = {};
+let channels = {};
 
-app.get('/events/:channel', (req, res) => {
-    const channel = req.params.channel;
+app.post('/send-message', (req, res) => {
+  const { sender, message, imageBase64, audioBase64, id_channel } = req.body;
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+  if (!id_channel || (!message && !imageBase64 && !audioBase64)) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
 
-    if (!clients[channel]) {
-        clients[channel] = [];
-    }
-    clients[channel].push(res);
+  const date = new Date().toISOString();
 
-    req.on('close', () => {
-        clients[channel] = clients[channel].filter(client => client !== res);
-    });
+  if (!channels[id_channel]) {
+    channels[id_channel] = [];
+  }
+
+  const data = {
+    sender,
+    message,
+    date,
+    image: imageBase64 || null,
+    audio: audioBase64 || null,
+  };
+
+  channels[id_channel].forEach((client) => {
+    client.res.write(`data: ${JSON.stringify(data)}\n\n`);
+  });
+
+  res.status(200).json({ message: 'Message sent' });
 });
 
-app.post('/send/:channel', (req, res) => {
-    const channel = req.params.channel;
-    let { sender, message } = req.body;
+app.get('/subscribe/:channel', (req, res) => {
+  const { channel } = req.params;
 
-    sender = validator.trim(sender);
-    message = validator.trim(message);
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
 
-    if (message.length === 0 || message.length > 200) {
-        return res.status(400).json({ error: 'Message must be between 1 and 200 characters.' });
-    }
+  if (!channels[channel]) {
+    channels[channel] = [];
+  }
 
-    message = validator.escape(message);
-    sender = validator.escape(sender);
+  const client = {
+    id: Date.now(),
+    res,
+  };
 
-    if (clients[channel]) {
-        clients[channel].forEach(client => {
-            client.write(`data: ${JSON.stringify({ sender, message })}\n\n`);
-        });
-    }
+  channels[channel].push(client);
 
-    res.sendStatus(200);
+  req.on('close', () => {
+    channels[channel] = channels[channel].filter((c) => c.id !== client.id);
+  });
 });
 
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(3000, () => {
+  console.log('SSE server running on port 3000');
 });
