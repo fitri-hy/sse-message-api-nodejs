@@ -1,6 +1,6 @@
 # Real-Time SSE Messaging API with Multi-Channel
 
-<img src="./public/logo.png">
+<img src="./public/ss.png">
 
 SSE Message is a real-time chat application that supports voice messaging and image sharing, providing a seamless communication experience.
 
